@@ -23,3 +23,9 @@ minima:
     - usage.md
     - configuration.md
     - adding.md
+
+sass:
+  quiet_deps: true
+  silence_deprecations:
+    - import
+    - global-builtin
