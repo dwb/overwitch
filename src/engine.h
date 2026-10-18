@@ -179,6 +179,10 @@ struct ow_engine
   size_t latency_h2o;
   size_t latency_h2o_min;
   size_t latency_h2o_max;
+  //Frames skipped by the o2h USB block counter, i.e., lost before reaching the host.
+  uint32_t o2h_lost_frames;
+  uint16_t o2h_next_frames;
+  int o2h_frames_valid;
   pthread_t thread;
   size_t h2o_transfer_size;
   size_t o2h_transfer_size;

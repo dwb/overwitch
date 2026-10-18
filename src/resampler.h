@@ -59,4 +59,5 @@ struct ow_resampler
   int report_period;
   struct ow_resampler_state state;
   uint64_t phase_start_usecs;
+  uint64_t trace_usecs;		//Time of the previous cycle traced.
 };

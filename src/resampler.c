@@ -144,20 +144,64 @@ ow_resampler_set_state (struct ow_resampler *resampler)
 static inline void
 ow_resampler_report_state (struct ow_resampler *resampler)
 {
+  uint32_t lost;
   struct ow_resampler_state *state = &resampler->state;
 
   ow_resampler_set_state (resampler);
 
+  pthread_spin_lock (&resampler->engine->lock);
+  lost = resampler->engine->o2h_lost_frames;
+  resampler->engine->o2h_lost_frames = 0;
+  pthread_spin_unlock (&resampler->engine->lock);
+
   if (debug_level > 1)
     {
       fprintf (stderr,
-	       "%s (%s): o2h latency: %4.1f [%4.1f, %4.1f] ms; h2o latency: %4.1f [%4.1f, %4.1f] ms, o2h ratio: %f\n",
+	       "%s (%s): o2h latency: %4.1f [%4.1f, %4.1f] ms; h2o latency: %4.1f [%4.1f, %4.1f] ms, o2h ratio: %f, o2h lost frames: %u\n",
 	       resampler->engine->name, resampler->engine->overbridge_name,
 	       state->t_latency_o2h, state->t_latency_o2h_min,
 	       state->t_latency_o2h_max, state->t_latency_h2o,
 	       state->t_latency_h2o_min, state->t_latency_h2o_max,
-	       state->ratio_o2h);
+	       state->ratio_o2h, lost);
     }
+}
+
+//Prints the loop state every cycle to see what the ratios follow.
+//The o2h rate is the Overbridge frame rate seen by the host, which is lower than the device rate if transfers are lost.
+static inline void
+ow_resampler_trace (struct ow_resampler *resampler, uint64_t current_usecs,
+		    ow_resampler_status_t status)
+{
+  double ob_dt;
+  uint32_t lost, o2h_fill, h2o_fill;
+  struct ow_dll *dll = &resampler->dll;
+  struct ow_context *context = resampler->engine->context;
+
+  if (debug_level < 4)
+    {
+      return;
+    }
+
+  pthread_spin_lock (&resampler->engine->lock);
+  ob_dt = dll->dll_overbridge.dt;
+  lost = resampler->engine->o2h_lost_frames;
+  pthread_spin_unlock (&resampler->engine->lock);
+
+  o2h_fill = context->read_space (context->o2h_audio) /
+    resampler->o2h_frame_size;
+  h2o_fill = context->read_space (context->h2o_audio) /
+    resampler->h2o_frame_size;
+
+  fprintf (stderr,
+	   "%s (%s): status: %d; t: %lu us; dt: %ld us; o2h rate: %.2f Hz; o2h err: %.1f; z2: %.7f; z3: %.7f; o2h fill: %u; o2h ratio: %.7f; h2o err: %.1f; h2o fill: %u; h2o ratio: %.7f; o2h lost frames: %u\n",
+	   resampler->engine->name, resampler->engine->overbridge_name,
+	   status, current_usecs,
+	   (long) (current_usecs - resampler->trace_usecs),
+	   resampler->engine->frames_per_transfer / ob_dt, dll->err, dll->z2,
+	   dll->z3, o2h_fill, resampler->o2h_ratio, resampler->h2o_err,
+	   h2o_fill, resampler->h2o_ratio, lost);
+
+  resampler->trace_usecs = current_usecs;
 }
 
 void
@@ -633,6 +677,8 @@ ow_resampler_compute_ratios (struct ow_resampler *resampler,
 
   ow_resampler_set_ratios_from_dll (resampler);
 
+  ow_resampler_trace (resampler, current_usecs, status);
+
   if (status == OW_RESAMPLER_STATUS_BOOT &&
       current_usecs - resampler->phase_start_usecs > BOOTING_PERIOD_US &&
       ow_dll_tuned (dll, BOOTING_ERROR))
@@ -740,6 +786,7 @@ ow_resampler_init_from_device (struct ow_resampler **resampler_,
   resampler->h2o_aux = NULL;
   resampler->h2o_acc = 0.0;
   resampler->h2o_correction = 0.0;
+  resampler->trace_usecs = 0;
   resampler->status = OW_RESAMPLER_STATUS_STOP;
 
   resampler->h2o_state = src_callback_new (resampler_h2o_reader, quality,

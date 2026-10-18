@@ -137,6 +137,23 @@ ow_engine_read_usb_input_blocks_v2 (struct ow_engine *engine)
     }
 }
 
+//The device increments the block counter by the frames in the block, so a jump means that frames were lost.
+static inline void
+ow_engine_check_o2h_frames (struct ow_engine *engine)
+{
+  uint16_t frames, lost;
+  struct ow_engine_usb_blk_v2 *blk = GET_NTH_INPUT_USB_BLK_V2 (engine, 0);
+
+  frames = be16toh (blk->frames);
+  lost = frames - engine->o2h_next_frames;
+  if (engine->o2h_frames_valid && lost && lost < 0x8000)
+    {
+      engine->o2h_lost_frames += lost;
+    }
+  engine->o2h_next_frames = frames + engine->frames_per_transfer;
+  engine->o2h_frames_valid = 1;
+}
+
 static void
 set_usb_input_data_blks_v2 (struct ow_engine *engine)
 {
@@ -144,6 +161,7 @@ set_usb_input_data_blks_v2 (struct ow_engine *engine)
   ow_engine_status_t status;
 
   pthread_spin_lock (&engine->lock);
+  ow_engine_check_o2h_frames (engine);
   if (engine->context->dll)
     {
       engine->context->dll_overbridge_update (engine->context->dll,
@@ -576,6 +594,9 @@ ow_engine_init_mem_v2 (struct ow_engine *engine,
   engine->latency_o2h_min = engine->frames_per_transfer;
   engine->latency_h2o_min = engine->frames_per_transfer;
 
+  engine->o2h_lost_frames = 0;
+  engine->o2h_frames_valid = 0;
+
   engine->usb.audio_frames_counter = 0;
   engine->usb.xfr_audio_in_data_len =
     engine->usb.audio_in_blk_len * engine->blocks_per_transfer;
@@ -911,6 +932,9 @@ run_audio (void *data)
       engine->latency_h2o_max = engine->latency_h2o_min;
       engine->latency_o2h = engine->latency_o2h_min;
       engine->latency_o2h_max = engine->latency_o2h_min;
+
+      //Frames are not read while booting or clearing.
+      engine->o2h_frames_valid = 0;
 
       engine->reading_at_h2o_end = engine->context->dll ? 0 : 1;
 
