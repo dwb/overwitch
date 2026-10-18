@@ -20,7 +20,6 @@ let
       or (config.services.xserver.enable || config.services.displayManager.enable);
 
   settings = lib.filterAttrs (_: v: v != null) cfg.settings;
-  settingsFile = json.generate "overwitch-preferences.json" settings;
   prefsPath = "%h/.config/overwitch/preferences.json";
 
   tmpfilesRules = [
@@ -28,17 +27,17 @@ let
   ]
   ++ (
     if cfg.enforceSettings then
-      [ "L+ ${prefsPath} - - - - ${settingsFile}" ]
+      [ "L+ ${prefsPath} - - - - ${json.generate "overwitch-preferences.json" settings}" ]
     else
-      # Seed only; the GUI owns the file from then on.
+      # Seed only; the GUI owns the file from then on. The argument of `f` is
+      # subject to C escapes and specifier expansion.
       [
-        "C ${prefsPath} - - - - ${settingsFile}"
-        "z ${prefsPath} 0644 - - -"
+        "f ${prefsPath} 0644 - - - ${
+          lib.replaceStrings [ "\\" "%" ] [ "\\\\" "%%" ] (builtins.toJSON settings)
+        }"
       ]
   );
 
-  # D-Bus activation goes through the systemd user unit, so the GUI and the
-  # autostarted service are the same instance with the same environment.
   # The session bus searches the system profile before services.dbus.packages,
   # so the package's own Exec-only service file must not be linked there.
   profilePackage = pkgs.symlinkJoin {
