@@ -995,6 +995,8 @@ ow_engine_set_thread_name (struct ow_engine *engine, const char *name)
 ow_err_t
 ow_engine_start (struct ow_engine *engine, struct ow_context *context)
 {
+  int err;
+
   engine->context = context;
 
   if (context->options & OW_ENGINE_OPTION_O2H_AUDIO)
@@ -1052,17 +1054,30 @@ ow_engine_start (struct ow_engine *engine, struct ow_context *context)
     }
 
   debug_print (1, "Starting thread...");
-  if (pthread_create (&engine->thread, NULL, run_audio, engine))
+  err = 1;
+  if (context->create_thread)
     {
-      error_print ("Could not start thread");
-      return OW_GENERIC_ERROR;
+      err = context->create_thread (context->thread_data, &engine->thread,
+				    context->priority + 1, run_audio, engine);
+      if (err)
+	{
+	  error_print ("Could not start thread with the host (%d)", err);
+	}
+    }
+  if (err)
+    {
+      if (pthread_create (&engine->thread, NULL, run_audio, engine))
+	{
+	  error_print ("Could not start thread");
+	  return OW_GENERIC_ERROR;
+	}
+      if (context->set_rt_priority)
+	{
+	  context->set_rt_priority (engine->thread,
+				    engine->context->priority + 1);
+	}
     }
   ow_engine_set_thread_name (engine, engine->overbridge_name);
-  if (context->set_rt_priority)
-    {
-      context->set_rt_priority (engine->thread,
-				engine->context->priority + 1);
-    }
 
   //status == OW_ENGINE_STATUS_STOP
 

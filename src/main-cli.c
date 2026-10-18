@@ -163,6 +163,7 @@ rename_device (int device_num, uint8_t bus, uint8_t address, const char *name)
   context.h2o_audio = NULL;
   context.options = 0;
   context.set_rt_priority = NULL;
+  context.create_thread = NULL;
 
   err = ow_engine_start (engine, &context);
   if (!err)

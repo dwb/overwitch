@@ -62,6 +62,9 @@ typedef void (*ow_dll_overbridge_update_t) (void *, uint32_t, uint64_t);
 
 typedef void (*ow_set_rt_priority_t) (pthread_t, int);
 
+typedef int (*ow_create_thread_t) (void *, pthread_t *, int,
+				   void *(*)(void *), void *);
+
 struct ow_resampler_state;
 
 typedef void (*ow_resampler_report_t) (void *, struct ow_resampler_state *);
@@ -145,6 +148,9 @@ struct ow_context
   //RT priority is always activated. If this is NULL, Overwitch will set itself with its default RT priority and policy.
   ow_set_rt_priority_t set_rt_priority;
   int priority;
+  //If set, the engine thread is created with this function, passing thread_data as the first argument. It must also set the RT priority, so set_rt_priority is not used. If it fails, Overwitch falls back to pthread_create and set_rt_priority.
+  ow_create_thread_t create_thread;
+  void *thread_data;
   //Options
   int options;
 };

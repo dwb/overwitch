@@ -268,6 +268,16 @@ set_rt_priority (pthread_t thread, int priority)
     }
 }
 
+static int
+create_thread (void *data, pthread_t * thread, int priority,
+	       void *(*start_routine) (void *), void *arg)
+{
+  struct jclient *jclient = data;
+  //Creating the thread through JACK lets PipeWire, when it uses RTKit, set its RT priority, as it only can for the threads it created.
+  return jack_client_create_thread (jclient->client, thread, priority, 1,
+				    start_routine, arg);
+}
+
 void
 jclient_stop (struct jclient *jclient)
 {
@@ -485,6 +495,8 @@ jclient_run (struct jclient *jclient)
 
   jclient->context.set_rt_priority = set_rt_priority;
   jclient->context.priority = jclient->priority;
+  jclient->context.create_thread = create_thread;
+  jclient->context.thread_data = jclient;
 
   jclient->context.options = OW_ENGINE_OPTION_O2H_AUDIO |
     OW_ENGINE_OPTION_H2O_AUDIO;
