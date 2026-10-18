@@ -74,3 +74,5 @@ systemd/Makefile
 systemd/Makefile.in
 udev/Makefile
 udev/Makefile.in
+result
+result-*

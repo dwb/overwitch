@@ -88,6 +88,41 @@ For Void Linux, run this to install the dependencies. Notice that, since this di
 sudo xbps-install base-devel gettext-devel pipewire libjack-pipewire jack-devel libusb-devel glib-devel json-glib-devel libsndfile-devel libsamplerate-devel gtk4-devel
 ```
 
+### Nix and NixOS
+
+The repository is a Nix flake. These packages are provided.
+
+* `overwitch` (default): all the binaries, including the GUI.
+* `overwitch-headless`: the command line applications only, built without GTK (`CLI_ONLY=yes`).
+* `overwitch-udev`: the udev rules and hwdb entries only.
+
+`nix develop` opens a shell with all the build dependencies for the autotools workflow.
+
+For NixOS, import the `nixosModules.default` output and enable the service. Whether the GUI is installed follows whether a graphical session is configured, which can be overridden with `services.overwitch.gui.enable`.
+
+```
+{
+  services.pipewire = {
+    enable = true;
+    jack.enable = true;
+  };
+
+  services.overwitch = {
+    enable = true;
+    # Required when running headless.
+    user = "alice";
+    settings = {
+      blocks = 12;
+      pipewireProps = "{ node.group = \"pro-audio-0\" }";
+    };
+  };
+}
+```
+
+With the GUI, `overwitch-service` is started on demand by the application through D-Bus and the preferences in `settings` are only written if `~/.config/overwitch/preferences.json` does not exist, so the GUI can change them.
+
+Without the GUI, the systemd user service is started at boot for `user` (lingering is enabled for that user) and `~/.config/overwitch/preferences.json` is replaced by a read-only link to `settings`.
+
 ### systemd service
 
 For embedded systems or users not wanting to use the GUI, it is recommended to install the systemd service unit by running `sudo make install` from the `systemd` directory. Notice `overwitch.service` is installed as a user service.
