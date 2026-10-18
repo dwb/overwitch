@@ -37,6 +37,16 @@
 
 #define HOST_UPDATE_ERROR 0.05
 
+//Maximum difference, in host periods plus transfers, between the DLL estimate of the o2h delay and the o2h ring buffer fill
+//and between the ring buffer fills and the target delay.
+#define MAX_FILL_ERROR_PERIODS 2
+
+//h2o ring buffer fill control. Times in seconds.
+#define H2O_FILTER_TIME 1.0
+#define H2O_TIME_CONSTANT 10.0
+#define H2O_INTEGRAL_TIME 40.0
+#define H2O_MAX_CORRECTION 0.005
+
 inline ow_resampler_status_t
 ow_resampler_get_status (struct ow_resampler *resampler)
 {
@@ -161,12 +171,21 @@ ow_resampler_clear_buffers (struct ow_resampler *resampler)
   resampler->h2o_queue_len = 0;
   resampler->reading_at_o2h_end = 0;
 
+  resampler->h2o_synced = 0;
+  resampler->h2o_err = 0.0;
+  resampler->h2o_err_int = 0.0;
+  resampler->h2o_correction = 0.0;
+
   if (context && context->o2h_audio)
     {
       rso2h = context->read_space (context->o2h_audio);
       bytes = ow_bytes_to_frame_bytes (rso2h, resampler->o2h_frame_size);
       context->read (context->o2h_audio, NULL, bytes);
     }
+
+  //Silence instead of repeating the last frames read while the o2h ring buffer fills up again.
+  memset (resampler->o2h_buf_in, 0,
+	  MAX_READ_FRAMES * resampler->o2h_frame_size);
 
   ow_engine_clear_buffers (resampler->engine);
 }
@@ -210,11 +229,19 @@ ow_resampler_get_target_delay_ms (struct ow_resampler *resampler)
   return resampler->dll.target_delay * 1000 / OB_SAMPLE_RATE;
 }
 
+static inline int
+ow_resampler_get_max_fill_error (struct ow_resampler *resampler)
+{
+  return MAX_FILL_ERROR_PERIODS * (resampler->bufsize +
+				   resampler->engine->frames_per_transfer);
+}
+
 static inline void
 ow_resampler_set_ratios_from_dll (struct ow_resampler *resampler)
 {
   resampler->o2h_ratio = resampler->dll.ratio;
-  resampler->h2o_ratio = 1.0 / resampler->o2h_ratio;
+  resampler->h2o_ratio = (1.0 - resampler->h2o_correction) /
+    resampler->o2h_ratio;
 }
 
 static inline void
@@ -305,19 +332,13 @@ resampler_o2h_reader (void *cb_data, float **data)
 	    resampler->engine->latency_o2h_min;
 	  pthread_spin_unlock (&resampler->engine->lock);
 
-	  frames = MAX_READ_FRAMES;
+	  //These frames are not taken from the ring buffer so they are not counted by the DLL.
+	  return MAX_READ_FRAMES;
 	}
     }
   else
     {
-      if (rso2h >= resampler->o2h_bufsize)
-	{
-	  bytes = ow_bytes_to_frame_bytes (rso2h, resampler->o2h_bufsize);
-	  debug_print (3, "o2h: Emptying buffer (%zu B) and running...",
-		       bytes);
-	  context->read (context->o2h_audio, NULL, bytes);
-	  resampler->reading_at_o2h_end = 1;
-	}
+      //The ring buffer is not being written to or it is being filled up (see ow_resampler_sync_o2h).
       frames = MAX_READ_FRAMES;
     }
 
@@ -345,6 +366,111 @@ ow_resampler_read_audio (struct ow_resampler *resampler)
   return 0;
 }
 
+//The h2o ratio only follows the o2h ratio, so the h2o ring buffer fill drifts.
+//This keeps the fill, measured after writing, at the DLL target delay by correcting the h2o ratio.
+static void
+ow_resampler_control_h2o (struct ow_resampler *resampler)
+{
+  double t, err, correction;
+  uint32_t fill, frames, max_frames;
+  struct ow_context *context = resampler->engine->context;
+  uint32_t target = resampler->dll.target_delay;
+
+  if (!ow_engine_is_option (resampler->engine, OW_ENGINE_OPTION_H2O_AUDIO))
+    {
+      return;
+    }
+
+  fill = context->read_space (context->h2o_audio) / resampler->h2o_frame_size;
+
+  if (!resampler->h2o_synced)
+    {
+      //The engine empties the ring buffer before it starts reading from it.
+      if (!resampler->engine->reading_at_h2o_end)
+	{
+	  return;
+	}
+
+      debug_print (3, "h2o: Filling buffer with %u frames...",
+		   fill < target ? target - fill : 0);
+
+      max_frames = resampler->bufsize * 8;	//h2o_buf_out size
+      memset (resampler->h2o_buf_out, 0,
+	      max_frames * resampler->h2o_frame_size);
+      while (fill < target)
+	{
+	  frames = target - fill;
+	  frames = frames > max_frames ? max_frames : frames;
+	  context->write (context->h2o_audio,
+			  (void *) resampler->h2o_buf_out,
+			  frames * resampler->h2o_frame_size);
+	  fill += frames;
+	}
+
+      resampler->h2o_synced = 1;
+      return;
+    }
+
+  t = resampler->bufsize / resampler->samplerate;
+  err = (double) fill - target;
+  resampler->h2o_err += (err - resampler->h2o_err) *
+    fmin (1.0, t / H2O_FILTER_TIME);
+  resampler->h2o_err_int += resampler->h2o_err * t;
+
+  correction = (resampler->h2o_err +
+		resampler->h2o_err_int / H2O_INTEGRAL_TIME) /
+    (H2O_TIME_CONSTANT * OB_SAMPLE_RATE);
+  if (fabs (correction) > H2O_MAX_CORRECTION)
+    {
+      resampler->h2o_err_int -= resampler->h2o_err * t;
+      correction = copysign (H2O_MAX_CORRECTION, correction);
+    }
+
+  resampler->h2o_correction = correction;
+}
+
+//The DLL estimates the o2h delay counting the frames written by the engine and the frames read by the resampler.
+//The engine and the resampler discard frames in some circumstances, so the estimate needs to be anchored to the ring buffer fill.
+//After the buffers are cleared, this waits until the ring buffer holds the target delay, discards the excess and anchors the estimate.
+//Returns -1 while waiting, 1 if the estimate and the fill have diverged and 0 otherwise.
+static int
+ow_resampler_sync_o2h (struct ow_resampler *resampler)
+{
+  int32_t diff;
+  uint32_t fill;
+  struct ow_dll *dll = &resampler->dll;
+  struct ow_context *context = resampler->engine->context;
+  uint32_t target = dll->target_delay;
+
+  fill = context->read_space (context->o2h_audio) / resampler->o2h_frame_size;
+
+  if (!resampler->reading_at_o2h_end)
+    {
+      if (fill < target)
+	{
+	  return -1;
+	}
+
+      debug_print (3, "o2h: Discarding %u frames and running...",
+		   fill - target);
+      context->read (context->o2h_audio, NULL,
+		     (fill - target) * resampler->o2h_frame_size);
+      dll->frames = dll->i0.frames - target;
+      resampler->reading_at_o2h_end = 1;
+      return 0;
+    }
+
+  diff = (int32_t) (dll->i0.frames - dll->frames) - (int32_t) fill;
+  if (abs (diff) > ow_resampler_get_max_fill_error (resampler))
+    {
+      error_print
+	("o2h: DLL delay estimate and buffer fill differ by %d frames", diff);
+      return 1;
+    }
+
+  return 0;
+}
+
 int
 ow_resampler_write_audio (struct ow_resampler *resampler)
 {
@@ -353,7 +479,6 @@ ow_resampler_write_audio (struct ow_resampler *resampler)
   int frames;
   size_t bytes;
   size_t wsh2o;
-  static double h2o_acc = .0;
   ow_resampler_status_t status = ow_resampler_get_status (resampler);
   struct ow_context *context = resampler->engine->context;
 
@@ -368,9 +493,9 @@ ow_resampler_write_audio (struct ow_resampler *resampler)
 	  resampler->h2o_bufsize);
   resampler->h2o_queue_len += resampler->bufsize;
 
-  h2o_acc += resampler->bufsize * (resampler->h2o_ratio - 1.0);
-  inc = trunc (h2o_acc);
-  h2o_acc -= inc;
+  resampler->h2o_acc += resampler->bufsize * (resampler->h2o_ratio - 1.0);
+  inc = trunc (resampler->h2o_acc);
+  resampler->h2o_acc -= inc;
   frames = resampler->bufsize + inc;
 
   gen_frames = src_callback_read (resampler->h2o_state, resampler->h2o_ratio,
@@ -397,6 +522,8 @@ ow_resampler_write_audio (struct ow_resampler *resampler)
       error_print ("h2o: Audio ring buffer overflow. Discarding data...");
     }
 
+  ow_resampler_control_h2o (resampler);
+
   return 0;
 }
 
@@ -405,6 +532,7 @@ ow_resampler_compute_ratios (struct ow_resampler *resampler,
 			     uint64_t current_usecs, int xrun,
 			     void (*audio_running_cb) (void *), void *cb_data)
 {
+  int sync, max_err;
   int retune_required = xrun;
   ow_engine_status_t engine_status;
   struct ow_dll *dll = &resampler->dll;
@@ -446,7 +574,39 @@ ow_resampler_compute_ratios (struct ow_resampler *resampler,
   ow_dll_host_load_dll_overbridge (dll);
   pthread_spin_unlock (&resampler->engine->lock);
 
+  if (status >= OW_RESAMPLER_STATUS_RUN)
+    {
+      sync = ow_resampler_sync_o2h (resampler);
+      if (sync < 0)
+	{
+	  //The ratio is kept until the DLL estimate is anchored again.
+	  return 0;
+	}
+      if (sync)
+	{
+	  retune_required = 1;
+	}
+    }
+
   ow_dll_host_update_error (dll, current_usecs);
+
+  //Steering errors this large through the ratios would take too long and would be audible.
+  if (status >= OW_RESAMPLER_STATUS_RUN)
+    {
+      max_err = ow_resampler_get_max_fill_error (resampler);
+      if (fabs (dll->err) > max_err)
+	{
+	  error_print ("o2h: Delay differs from target by %.0f frames",
+		       dll->err);
+	  retune_required = 1;
+	}
+      if (resampler->h2o_synced && fabs (resampler->h2o_err) > max_err)
+	{
+	  error_print ("h2o: Delay differs from target by %.0f frames",
+		       resampler->h2o_err);
+	  retune_required = 1;
+	}
+    }
 
   if (status == OW_RESAMPLER_STATUS_READY &&
       engine_status == OW_ENGINE_STATUS_WAIT)
@@ -515,18 +675,26 @@ ow_resampler_compute_ratios (struct ow_resampler *resampler,
 
 	  audio_running_cb (cb_data);
 
-	  ow_resampler_clear_buffers (resampler);
+	  //When retuning, the buffers were cleared when the retune started.
+	  if (status == OW_RESAMPLER_STATUS_TUNE)
+	    {
+	      ow_resampler_clear_buffers (resampler);
+	    }
 	}
     }
 
-  if (status == OW_RESAMPLER_STATUS_RUN && retune_required)
+  if ((status == OW_RESAMPLER_STATUS_RUN ||
+       status == OW_RESAMPLER_STATUS_RETUNE) && retune_required)
     {
       debug_print (1, "%s (%s): Retuning resampler...",
 		   resampler->engine->name,
 		   resampler->engine->overbridge_name);
 
+      //The filter state is discarded as the error that caused the retune might have wound it up.
+      ow_dll_host_reset_filter (dll, resampler->samplerate / OB_SAMPLE_RATE);
       ow_dll_host_set_loop_filter (dll, 0.5, resampler->bufsize,
 				   resampler->samplerate);
+      ow_resampler_set_ratios_from_dll (resampler);
 
       ow_resampler_set_status (resampler, OW_RESAMPLER_STATUS_RETUNE);
 
@@ -570,6 +738,8 @@ ow_resampler_init_from_device (struct ow_resampler **resampler_,
   resampler->o2h_frame_size = device->desc.outputs * OW_BYTES_PER_SAMPLE;
   resampler->h2o_frame_size = device->desc.inputs * OW_BYTES_PER_SAMPLE;
   resampler->h2o_aux = NULL;
+  resampler->h2o_acc = 0.0;
+  resampler->h2o_correction = 0.0;
   resampler->status = OW_RESAMPLER_STATUS_STOP;
 
   resampler->h2o_state = src_callback_new (resampler_h2o_reader, quality,

@@ -42,6 +42,11 @@ struct ow_resampler
   int log_control_cycles;
   int log_cycles;
   int reading_at_o2h_end;
+  double h2o_acc;
+  int h2o_synced;		//The h2o ring buffer has been filled up to the target after a clear.
+  double h2o_err;		//Filtered h2o ring buffer fill error in frames.
+  double h2o_err_int;		//Integral of h2o_err over time in frames times seconds.
+  double h2o_correction;	//Relative correction applied to h2o_ratio.
   //These frame sizes can differ from the engine frame sizes when
   //the device is using fewer than 4 bytes for tracks and are always
   //based on sizeof(float).

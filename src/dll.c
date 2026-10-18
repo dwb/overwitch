@@ -174,6 +174,16 @@ ow_dll_host_init (struct ow_dll *dll)
   dll->dll_overbridge.boot = 1;
 }
 
+//Clears the loop filter state so that the next update starts from the given ratio.
+inline void
+ow_dll_host_reset_filter (struct ow_dll *dll, double ratio)
+{
+  dll->z1 = 0.0;
+  dll->z2 = 0.0;
+  dll->z3 = 1.0 - ratio;	//As ratio = 1.0 - z2 - z3
+  dll->ratio = ratio;
+}
+
 inline void
 ow_dll_host_reset (struct ow_dll *dll, double output_samplerate,
 		   double input_samplerate, uint32_t output_frames,
@@ -181,11 +191,8 @@ ow_dll_host_reset (struct ow_dll *dll, double output_samplerate,
 {
   debug_print (3, "Resetting the DLL...");
 
-  dll->z1 = 0.0;
-  dll->z2 = 0.0;
-  dll->z3 = 0.0;
+  ow_dll_host_reset_filter (dll, output_samplerate / input_samplerate);
 
-  dll->ratio = output_samplerate / input_samplerate;
   dll->max_ratio = dll->ratio * MAX_RATIO_ERROR;
   dll->min_ratio = dll->ratio / MAX_RATIO_ERROR;
 

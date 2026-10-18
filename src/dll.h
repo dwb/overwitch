@@ -65,6 +65,8 @@ void ow_dll_overbridge_update (void *, uint32_t, uint64_t);
 
 void ow_dll_host_init (struct ow_dll *dll);
 
+void ow_dll_host_reset_filter (struct ow_dll *, double);
+
 void ow_dll_host_reset (struct ow_dll *, double, double, uint32_t, uint32_t);
 
 void ow_dll_host_set_loop_filter (struct ow_dll *, double, uint32_t, double);

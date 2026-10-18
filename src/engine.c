@@ -980,6 +980,8 @@ ow_engine_clear_buffers (struct ow_engine *engine)
   if (engine->status == OW_ENGINE_STATUS_RUN)
     {
       engine->status = OW_ENGINE_STATUS_CLEAR;
+      //Done here too so that the resampler can not see the value previous to the clear.
+      engine->reading_at_h2o_end = 0;
     }
   pthread_spin_unlock (&engine->lock);
 }
