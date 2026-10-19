@@ -78,7 +78,7 @@ print_blocks_v2 (struct ow_engine *engine)
   for (int i = 0; i < engine->blocks_per_transfer; i++)
     {
       uint16_t debug_counter = 0;
-      ow_engine_print_usb_block_v2 (engine, i, 0, &debug_counter);
+      ow_engine_print_usb_block_v2 (engine, NULL, i, 0, &debug_counter);
     }
 }
 
@@ -120,7 +120,7 @@ test_sizes_v2 ()
   copy_device_desc (&engine.device->desc, &TESTDEV_DESC_SIZE);
   engine.usb.audio_in_blk_len = 0;
   engine.usb.audio_out_blk_len = 0;
-  ow_engine_init_mem_v2 (&engine, BLOCKS);
+  ow_engine_init_mem_v2 (&engine, BLOCKS, OW_DEFAULT_O2H_TRANSFERS);
 
   printf ("\n");
 
@@ -164,7 +164,7 @@ test_usb_blocks_v2_error (const struct ow_device_desc *device_desc,
   copy_device_desc (&engine.device->desc, device_desc);
   engine.usb.audio_in_blk_len = 0;
   engine.usb.audio_out_blk_len = 0;
-  ow_engine_init_mem_v2 (&engine, BLOCKS);
+  ow_engine_init_mem_v2 (&engine, BLOCKS, OW_DEFAULT_O2H_TRANSFERS);
 
   CU_ASSERT_EQUAL (engine.usb.audio_out_blk_len, blk_size);
   CU_ASSERT_EQUAL (engine.usb.audio_in_blk_len, blk_size);
@@ -199,7 +199,7 @@ test_usb_blocks_v2_error (const struct ow_device_desc *device_desc,
   memcpy (engine.usb.xfr_audio_in_data, engine.usb.xfr_audio_out_data,
 	  engine.usb.xfr_audio_in_data_len);
 
-  ow_engine_read_usb_input_blocks_v2 (&engine);
+  ow_engine_read_usb_input_blocks_v2 (&engine, engine.usb.xfr_audio_in_data);
 
   a = engine.h2o_transfer_buf;
   b = engine.o2h_transfer_buf;

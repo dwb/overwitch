@@ -51,7 +51,8 @@ struct jclient
 void jclient_check_jack_server (jclient_notify_status_t);
 
 int jclient_init (struct jclient *jclient, struct ow_device *device,
-		  unsigned int blocks_per_transfer, unsigned int xfr_timeout,
+		  unsigned int blocks_per_transfer,
+		  unsigned int o2h_transfers, unsigned int xfr_timeout,
 		  int quality, int priority);
 
 int jclient_start (struct jclient *);

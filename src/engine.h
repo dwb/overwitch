@@ -151,7 +151,7 @@
 #include "overwitch.h"
 
 #define GET_NTH_USB_BLK_V2(blks,blk_len,n) ((struct ow_engine_usb_blk_v2 *) &blks[n * blk_len])
-#define GET_NTH_INPUT_USB_BLK_V2(engine,n) (GET_NTH_USB_BLK_V2((engine)->usb.xfr_audio_in_data, (engine)->usb.audio_in_blk_len, n))
+#define GET_NTH_INPUT_USB_BLK_V2(engine,data,n) (GET_NTH_USB_BLK_V2((data), (engine)->usb.audio_in_blk_len, n))
 #define GET_NTH_OUTPUT_USB_BLK_V2(engine,n) (GET_NTH_USB_BLK_V2((engine)->usb.xfr_audio_out_data, (engine)->usb.audio_out_blk_len, n))
 
 #define OB2_PRIVATE_LEN 28
@@ -171,6 +171,7 @@ struct ow_engine
   unsigned int blocks_per_transfer;
   unsigned int frames_per_block;
   unsigned int frames_per_transfer;
+  unsigned int o2h_transfers;
   pthread_spinlock_t lock;
   //Latencies are measured in frames
   size_t latency_o2h;
@@ -198,14 +199,17 @@ struct ow_engine
     unsigned int xfr_timeout;
     //Audio
     uint16_t audio_frames_counter;
-    struct libusb_transfer *xfr_audio_in;
+    struct libusb_transfer *xfr_audio_in[OW_MAX_O2H_TRANSFERS];
     struct libusb_transfer *xfr_audio_out;
+    //Data of the o2h_transfers in transfers, one after another.
     uint8_t *xfr_audio_in_data;
     uint8_t *xfr_audio_out_data;
     size_t audio_in_blk_len;
     size_t audio_out_blk_len;
     int xfr_audio_in_data_len;
     int xfr_audio_out_data_len;
+    //Audio transfers submitted whose callback has not been called yet.
+    int xfr_audio_active;
     //Control
     struct libusb_transfer *xfr_control_out;
     struct libusb_transfer *xfr_control_in;
@@ -229,11 +233,13 @@ struct ow_engine_usb_blk_v2
 
 int ow_bytes_to_frame_bytes (int, int);
 
-void ow_engine_read_usb_input_blocks_v2 (struct ow_engine *engine);
+void ow_engine_read_usb_input_blocks_v2 (struct ow_engine *engine,
+					 uint8_t * data);
 
 void ow_engine_write_usb_output_blocks_v2 (struct ow_engine *engine);
 
-int ow_engine_init_mem_v2 (struct ow_engine *engine, unsigned int);
+int ow_engine_init_mem_v2 (struct ow_engine *engine, unsigned int,
+			   unsigned int);
 
 unsigned int ow_engine_get_valid_blocks_per_transfer (unsigned int
 						      blocks_per_transfer,
@@ -243,5 +249,6 @@ unsigned int ow_engine_get_valid_blocks_per_transfer (unsigned int
 
 void ow_engine_free_mem (struct ow_engine *engine);
 
-void ow_engine_print_usb_block_v2 (struct ow_engine *engine, int block,
-				   int o2h, uint16_t * debug_counter);
+void ow_engine_print_usb_block_v2 (struct ow_engine *engine, uint8_t * data,
+				   int block, int o2h,
+				   uint16_t * debug_counter);

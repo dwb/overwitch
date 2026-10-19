@@ -28,6 +28,7 @@
 #define DEFAULT_QUALITY 2
 
 static int blocks_per_transfer = OW2_DEFAULT_BLOCKS;
+static int o2h_transfers = OW_DEFAULT_O2H_TRANSFERS;
 static int quality = DEFAULT_QUALITY;
 static int priority = JCLIENT_DEFAULT_PRIORITY;
 static int xfr_timeout = OW_DEFAULT_XFR_TIMEOUT;
@@ -42,6 +43,7 @@ static struct option options[] = {
   {"bus-device-address", 1, NULL, 'a'},
   {"resampling-quality", 1, NULL, 'q'},
   {"blocks-per-transfer", 1, NULL, 'b'},
+  {"o2h-transfers", 1, NULL, 'o'},
   {"usb-transfer-timeout", 1, NULL, 't'},
   {"rt-priority", 1, NULL, 'p'},
   {"rename", 1, NULL, 'r'},
@@ -101,8 +103,8 @@ run_jclient (int device_num, uint8_t bus, uint8_t address)
     }
   pthread_spin_unlock (&lock);
 
-  if (jclient_init (&jclient, device, blocks_per_transfer, xfr_timeout,
-		    quality, priority))
+  if (jclient_init (&jclient, device, blocks_per_transfer, o2h_transfers,
+		    xfr_timeout, quality, priority))
     {
       free (device);
       return EXIT_FAILURE;
@@ -141,6 +143,7 @@ rename_device (int device_num, uint8_t bus, uint8_t address, const char *name)
     }
 
   err = ow_engine_init_from_device (&engine, device, OW2_DEFAULT_BLOCKS,
+				    OW_DEFAULT_O2H_TRANSFERS,
 				    OW_DEFAULT_XFR_TIMEOUT);
   if (err)
     {
@@ -181,8 +184,8 @@ int
 main (int argc, char *argv[])
 {
   int opt, err = EXIT_SUCCESS;
-  int vflg = 0, lflg = 0, dflg = 0, bflg = 0, pflg = 0, tflg = 0, nflg =
-    0, aflg = 0, rflg = 0, errflg = 0;
+  int vflg = 0, lflg = 0, dflg = 0, bflg = 0, oflg = 0, pflg = 0, tflg =
+    0, nflg = 0, aflg = 0, rflg = 0, errflg = 0;
   char *endstr;
   char *name = NULL;
   uint8_t bus = 0, address = 0;
@@ -204,7 +207,7 @@ main (int argc, char *argv[])
   sigaction (SIGUSR1, &action, NULL);
   sigaction (SIGUSR2, &action, NULL);
 
-  while ((opt = getopt_long (argc, argv, "sn:a:q:b:t:p:r:lvh",
+  while ((opt = getopt_long (argc, argv, "sn:a:q:b:o:t:p:r:lvh",
 			     options, &long_index)) != -1)
     {
       switch (opt)
@@ -237,6 +240,10 @@ main (int argc, char *argv[])
 	case 'b':
 	  blocks_per_transfer = get_ow_blocks_per_transfer_argument (optarg);
 	  bflg++;
+	  break;
+	case 'o':
+	  o2h_transfers = get_ow_o2h_transfers_argument (optarg);
+	  oflg++;
 	  break;
 	case 't':
 	  xfr_timeout = get_ow_xfr_timeout_argument (optarg);
@@ -297,6 +304,13 @@ main (int argc, char *argv[])
   if (bflg > 1)
     {
       fprintf (stderr, "Undetermined blocks\n");
+      err = EXIT_FAILURE;
+      goto cleanup;
+    }
+
+  if (oflg > 1)
+    {
+      fprintf (stderr, "Undetermined o2h transfers\n");
       err = EXIT_FAILURE;
       goto cleanup;
     }

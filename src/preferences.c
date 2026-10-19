@@ -26,6 +26,7 @@
 
 #define PREF_SHOW_ALL_COLUMNS "showAllColumns"
 #define PREF_BLOCKS "blocks"
+#define PREF_O2H_TRANSFERS "o2hTransfers"
 #define PREF_QUALITY "quality"
 #define PREF_TIMEOUT "timeout"
 #define PREF_PIPEWIRE_PROPS "pipewireProps"
@@ -64,6 +65,9 @@ ow_save_preferences (struct ow_preferences *prefs)
   json_builder_set_member_name (builder, PREF_BLOCKS);
   json_builder_add_int_value (builder, prefs->blocks);
 
+  json_builder_set_member_name (builder, PREF_O2H_TRANSFERS);
+  json_builder_add_int_value (builder, prefs->o2h_transfers);
+
   json_builder_set_member_name (builder, PREF_TIMEOUT);
   json_builder_add_int_value (builder, prefs->timeout);
 
@@ -99,6 +103,7 @@ ow_load_preferences (struct ow_preferences *prefs)
   gchar *preferences_file = get_expanded_dir (CONF_DIR PREF_FILE);
 
   prefs->blocks = 24;
+  prefs->o2h_transfers = 1;
   prefs->quality = 2;
   prefs->timeout = 10;
   prefs->show_all_columns = FALSE;
@@ -127,6 +132,12 @@ ow_load_preferences (struct ow_preferences *prefs)
   if (json_reader_read_member (reader, PREF_BLOCKS))
     {
       prefs->blocks = json_reader_get_int_value (reader);
+    }
+  json_reader_end_member (reader);
+
+  if (json_reader_read_member (reader, PREF_O2H_TRANSFERS))
+    {
+      prefs->o2h_transfers = json_reader_get_int_value (reader);
     }
   json_reader_end_member (reader);
 

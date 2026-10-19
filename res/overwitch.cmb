@@ -2,5 +2,5 @@
 <!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
 <!-- Created with Cambalache 1.0.3 -->
 <cambalache-project version="1.0.0" target_tk="gtk-4.0" depends="casilda-1.0,libadwaita-1,webkitgtk-6.0">
-  <ui filename="overwitch.ui" sha256="ae6ddff5d6d11ec562c910f4037bd635c11c2e22b7d504bda6eb8819f533bec1"/>
+  <ui filename="overwitch.ui" sha256="80066619f4348c997de9fd279351e1059e47dced56733230d8065fac40752b2b"/>
 </cambalache-project>

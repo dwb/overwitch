@@ -71,6 +71,7 @@ static struct option options[] = {
   {"track-mask", 1, NULL, 'm'},
   {"disk-buffer-size-kilobytes", 1, NULL, 's'},
   {"blocks-per-transfer", 1, NULL, 'b'},
+  {"o2h-transfers", 1, NULL, 'o'},
   {"usb-transfer-timeout", 1, NULL, 't'},
   {"list-devices", 0, NULL, 'l'},
   {"verbose", 0, NULL, 'v'},
@@ -227,7 +228,7 @@ signal_handler (int signo)
 static int
 run_record (int device_num, uint8_t bus,
 	    uint8_t address, unsigned int blocks_per_transfer,
-	    unsigned int xfr_timeout)
+	    unsigned int o2h_transfers, unsigned int xfr_timeout)
 {
   char curr_time_string[MAX_TIME_LEN];
   time_t curr_time;
@@ -242,7 +243,7 @@ run_record (int device_num, uint8_t bus,
     }
 
   err = ow_engine_init_from_device (&engine, device, blocks_per_transfer,
-				    xfr_timeout);
+				    o2h_transfers, xfr_timeout);
   if (err)
     {
       free (device);
@@ -366,7 +367,7 @@ main (int argc, char *argv[])
 {
   int opt;
   int lflg = 0, vflg = 0, errflg = 0;
-  int nflg = 0, aflg = 0, mflg = 0, sflg = 0, bflg = 0, tflg = 0;
+  int nflg = 0, aflg = 0, mflg = 0, sflg = 0, bflg = 0, oflg = 0, tflg = 0;
   char *endstr;
   uint8_t bus = 0, address = 0;
   int long_index = 0;
@@ -374,6 +375,7 @@ main (int argc, char *argv[])
   struct sigaction action;
   int device_num = -1;
   unsigned int blocks_per_transfer = OW2_DEFAULT_BLOCKS;
+  unsigned int o2h_transfers = OW_DEFAULT_O2H_TRANSFERS;
   unsigned int xfr_timeout = OW_DEFAULT_XFR_TIMEOUT;
 
   action.sa_handler = signal_handler;
@@ -385,7 +387,7 @@ main (int argc, char *argv[])
   sigaction (SIGUSR1, &action, NULL);
   sigaction (SIGTSTP, &action, NULL);
 
-  while ((opt = getopt_long (argc, argv, "n:a:m:s:b:t:lvh",
+  while ((opt = getopt_long (argc, argv, "n:a:m:s:b:o:t:lvh",
 			     options, &long_index)) != -1)
     {
       switch (opt)
@@ -409,6 +411,10 @@ main (int argc, char *argv[])
 	case 'b':
 	  blocks_per_transfer = get_ow_blocks_per_transfer_argument (optarg);
 	  bflg++;
+	  break;
+	case 'o':
+	  o2h_transfers = get_ow_o2h_transfers_argument (optarg);
+	  oflg++;
 	  break;
 	case 't':
 	  xfr_timeout = get_ow_xfr_timeout_argument (optarg);
@@ -462,6 +468,12 @@ main (int argc, char *argv[])
       exit (EXIT_FAILURE);
     }
 
+  if (oflg > 1)
+    {
+      fprintf (stderr, "Undetermined o2h transfers\n");
+      exit (EXIT_FAILURE);
+    }
+
   if (tflg > 1)
     {
       fprintf (stderr, "Undetermined timeout\n");
@@ -471,7 +483,7 @@ main (int argc, char *argv[])
   if (nflg + aflg == 1)
     {
       return run_record (device_num, bus, address, blocks_per_transfer,
-			 xfr_timeout);
+			 o2h_transfers, xfr_timeout);
     }
   else
     {

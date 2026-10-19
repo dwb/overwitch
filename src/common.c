@@ -133,6 +133,26 @@ get_ow_blocks_per_transfer_argument (const char *optarg)
 }
 
 int
+get_ow_o2h_transfers_argument (const char *optarg)
+{
+  char *endstr;
+  int o2h_transfers;
+
+  errno = 0;
+  o2h_transfers = (int) strtol (optarg, &endstr, 10);
+  if (errno || endstr == optarg || *endstr != '\0' ||
+      o2h_transfers < OW_MIN_O2H_TRANSFERS ||
+      o2h_transfers > OW_MAX_O2H_TRANSFERS)
+    {
+      o2h_transfers = OW_DEFAULT_O2H_TRANSFERS;
+      fprintf (stderr,
+	       "o2h transfers value must be in [%d..%d]. Using value %d...\n",
+	       OW_MIN_O2H_TRANSFERS, OW_MAX_O2H_TRANSFERS, o2h_transfers);
+    }
+  return o2h_transfers;
+}
+
+int
 get_bus_address_from_str (char *input, uint8_t *bus, uint8_t *address)
 {
   char *endstr;

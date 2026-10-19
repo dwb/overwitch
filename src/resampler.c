@@ -762,12 +762,14 @@ ow_err_t
 ow_resampler_init_from_device (struct ow_resampler **resampler_,
 			       struct ow_device *device,
 			       unsigned int blocks_per_transfer,
+			       unsigned int o2h_transfers,
 			       unsigned int xfr_timeout, unsigned int quality)
 {
   struct ow_resampler *resampler = malloc (sizeof (struct ow_resampler));
   ow_err_t err = ow_engine_init_from_device (&resampler->engine,
 					     device,
 					     blocks_per_transfer,
+					     o2h_transfers,
 					     xfr_timeout);
   if (err)
     {

@@ -139,6 +139,7 @@ Regarding the JACK clients, latency needs to be under control and it can be tune
 
 - Quality, which controls the resampler accuracy. The higher the quality, the higher CPU usage. A medium value is recommended. Notice that a value of 0 means the highest quality while a value of 4 means the lowest.
 - Blocks, which controls the amount of data sent in a single USB operation. The more blocks, the higher latency but the lower CPU usage. As too lower values might stress the machines to the point of requiring a reboot, 10 is the minimum recommended value. If a device become unresponsive or you see the error below, increase the blocks and restart the device.
+- O2H transfers (`o2hTransfers` in the preferences), which controls how many USB transfers from the device are kept in flight. With a single transfer, the device is not polled while a completed transfer is processed and the next one is submitted, so it has to buffer its audio and might discard it if the host does not catch up. Queuing more transfers keeps the device polled without adding latency. The default value is 1 and the maximum is 8. The USB transfer timeout of each of these transfers is multiplied by this value as each one waits for the ones queued before it.
 
 ```
 ERROR:engine.c:351:cb_xfr_audio_out: h2o: Error on USB audio transfer (0 B): LIBUSB_TRANSFER_TIMED_OUT
@@ -284,6 +285,7 @@ Options:
   --bus-device-address, -a value
   --resampling-quality, -q value
   --blocks-per-transfer, -b value
+  --o2h-transfers, -o value
   --usb-transfer-timeout, -t value
   --rt-priority, -p value
   --rename, -r value
@@ -378,6 +380,7 @@ Options:
   --track-mask, -m value
   --disk-buffer-size-kilobytes, -s value
   --blocks-per-transfer, -b value
+  --o2h-transfers, -o value
   --usb-transfer-timeout, -t value
   --list-devices, -l
   --verbose, -v

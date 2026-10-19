@@ -45,6 +45,11 @@
 #define OW2_MAX_BLOCKS 24
 #define OW2_DEFAULT_BLOCKS 24
 
+//o2h USB transfers kept in flight so that the device is always polled.
+#define OW_MIN_O2H_TRANSFERS 1
+#define OW_MAX_O2H_TRANSFERS 8
+#define OW_DEFAULT_O2H_TRANSFERS 1
+
 #define OW_DEVICE_VERSION_2_STR     "2"
 #define OW_DEVICE_VERSION_2_1_STR   "2.1"
 
@@ -226,6 +231,7 @@ size_t ow_get_frame_size_from_desc_tracks (unsigned int tracks,
 ow_err_t ow_engine_init_from_device (struct ow_engine **engine,
 				     struct ow_device *device,
 				     unsigned int blocks_per_transfer,
+				     unsigned int o2h_transfers,
 				     unsigned int xfr_timeout);
 
 ow_err_t ow_engine_init_from_libusb_device_descriptor (struct ow_engine **,
@@ -268,6 +274,7 @@ int ow_hotplug_loop (int *running, pthread_spinlock_t * lock,
 ow_err_t ow_resampler_init_from_device (struct ow_resampler **resampler,
 					struct ow_device *device,
 					unsigned int blocks_per_transfer,
+					unsigned int o2h_transfers,
 					unsigned int xfr_timeout,
 					unsigned int quality);
 

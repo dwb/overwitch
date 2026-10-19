@@ -145,7 +145,7 @@ run_play (int device_num, uint8_t bus,
     }
 
   err = ow_engine_init_from_device (&engine, device, blocks_per_transfer,
-				    xfr_timeout);
+				    OW_DEFAULT_O2H_TRANSFERS, xfr_timeout);
   if (err)
     {
       free (device);

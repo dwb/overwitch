@@ -186,7 +186,8 @@ static void
 start_single (struct pooled_jclient *pjc, guint id, struct ow_device *device)
 {
   if (jclient_init (&pjc->jclient, device, preferences.blocks,
-		    preferences.timeout, preferences.quality,
+		    preferences.o2h_transfers, preferences.timeout,
+		    preferences.quality,
 		    JCLIENT_DEFAULT_PRIORITY))
     {
       free (device);

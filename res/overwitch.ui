@@ -36,6 +36,13 @@
     <property name="upper">24</property>
     <property name="value">24</property>
   </object>
+  <object class="GtkAdjustment" id="o2h_transfers_adjustment">
+    <property name="lower">1</property>
+    <property name="page-increment">1</property>
+    <property name="step-increment">1</property>
+    <property name="upper">8</property>
+    <property name="value">1</property>
+  </object>
   <object class="GtkAdjustment" id="transfer_timeout_adjustment">
     <property name="lower">1</property>
     <property name="page-increment">10</property>
@@ -425,11 +432,35 @@ Stefan Rehm &lt;droelfdroelf@gmail.com&gt;</property>
             <child>
               <object class="GtkLabel">
                 <property name="halign">end</property>
+                <property name="label" translatable="yes">Queued Transfers</property>
+                <property name="tooltip-text" translatable="yes">USB Transfers from the Device Kept in Flight</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="row">1</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="GtkSpinButton" id="o2h_transfers_spin_button">
+                <property name="adjustment">o2h_transfers_adjustment</property>
+                <property name="climb-rate">1</property>
+                <property name="halign">start</property>
+                <property name="text">1</property>
+                <property name="value">1</property>
+                <layout>
+                  <property name="column">1</property>
+                  <property name="row">1</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="halign">end</property>
                 <property name="label" translatable="yes">Transfer Timeout</property>
                 <property name="tooltip-text" translatable="yes">USB Transfer Timeout (ms)</property>
                 <layout>
                   <property name="column">0</property>
-                  <property name="row">1</property>
+                  <property name="row">2</property>
                 </layout>
               </object>
             </child>
@@ -442,7 +473,7 @@ Stefan Rehm &lt;droelfdroelf@gmail.com&gt;</property>
                 <property name="value">10</property>
                 <layout>
                   <property name="column">1</property>
-                  <property name="row">1</property>
+                  <property name="row">2</property>
                 </layout>
               </object>
             </child>
@@ -453,7 +484,7 @@ Stefan Rehm &lt;droelfdroelf@gmail.com&gt;</property>
                 <property name="tooltip-text" translatable="yes">Resampler quality to balance out the CPU usage</property>
                 <layout>
                   <property name="column">0</property>
-                  <property name="row">2</property>
+                  <property name="row">3</property>
                 </layout>
               </object>
             </child>
@@ -464,7 +495,7 @@ Stefan Rehm &lt;droelfdroelf@gmail.com&gt;</property>
                 <property name="selected">0</property>
                 <layout>
                   <property name="column">1</property>
-                  <property name="row">2</property>
+                  <property name="row">3</property>
                 </layout>
               </object>
             </child>
@@ -475,7 +506,7 @@ Stefan Rehm &lt;droelfdroelf@gmail.com&gt;</property>
                 <property name="tooltip-text" translatable="yes">Value of the "PIPEWIRE_PROPS" environment variable</property>
                 <layout>
                   <property name="column">0</property>
-                  <property name="row">3</property>
+                  <property name="row">4</property>
                 </layout>
               </object>
             </child>
@@ -486,7 +517,7 @@ Stefan Rehm &lt;droelfdroelf@gmail.com&gt;</property>
                 <property name="input-purpose">alpha</property>
                 <layout>
                   <property name="column">1</property>
-                  <property name="row">3</property>
+                  <property name="row">4</property>
                 </layout>
               </object>
             </child>

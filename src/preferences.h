@@ -24,6 +24,7 @@ struct ow_preferences
 {
   gboolean show_all_columns;
   gint64 blocks;
+  gint64 o2h_transfers;
   gint64 timeout;
   gint64 quality;
   gchar *pipewire_props;

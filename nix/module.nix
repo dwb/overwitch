@@ -143,6 +143,11 @@ in
             default = null;
             description = "Blocks per USB transfer. Upstream default: 24.";
           };
+          o2hTransfers = lib.mkOption {
+            type = lib.types.nullOr (lib.types.ints.between 1 8);
+            default = null;
+            description = "USB transfers from the device kept in flight. Upstream default: 1.";
+          };
           timeout = lib.mkOption {
             type = lib.types.nullOr lib.types.ints.unsigned;
             default = null;

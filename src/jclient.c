@@ -287,8 +287,8 @@ jclient_stop (struct jclient *jclient)
 
 int
 jclient_init (struct jclient *jclient, struct ow_device *device,
-	      unsigned int blocks_per_transfer, unsigned int xfr_timeout,
-	      int quality, int priority)
+	      unsigned int blocks_per_transfer, unsigned int o2h_transfers,
+	      unsigned int xfr_timeout, int quality, int priority)
 {
   ow_err_t err;
   struct ow_resampler *resampler;
@@ -300,8 +300,8 @@ jclient_init (struct jclient *jclient, struct ow_device *device,
   pthread_spin_init (&jclient->lock, PTHREAD_PROCESS_PRIVATE);
 
   err = ow_resampler_init_from_device (&resampler, device,
-				       blocks_per_transfer, xfr_timeout,
-				       quality);
+				       blocks_per_transfer, o2h_transfers,
+				       xfr_timeout, quality);
 
   if (err)
     {
